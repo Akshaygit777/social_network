@@ -1,104 +1,198 @@
 <?php
 session_start();
-require 'config.php';
 
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['full_name'])) {
     header("Location: login.php");
     exit;
 }
 
+$username = $_SESSION['full_name'];
 
-$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
-$stmt->execute([$_SESSION['user_id']]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
-$postStmt = $pdo->prepare("SELECT * FROM posts WHERE user_id = ? ORDER BY created_at DESC");
-$postStmt->execute([$_SESSION['user_id']]);
-$posts = $postStmt->fetchAll(PDO::FETCH_ASSOC);
+// Sample dummy posts for feed
+$posts = [
+    [
+        'user' => 'Alice Johnson',
+        'content' => 'Excited to announce I just started a new role at TechCorp!',
+        'time' => '2 hours ago',
+    ],
+    [
+        'user' => 'Bob Smith',
+        'content' => 'Just finished a great book on modern PHP practices.',
+        'time' => '5 hours ago',
+    ],
+    [
+        'user' => 'Carol Lee',
+        'content' => 'Looking forward to the upcoming tech conference next month.',
+        'time' => '1 day ago',
+    ],
+];
+
+// Sample dummy news/trends
+$news = [
+    'LinkedIn hits 1 billion users worldwide',
+    'Remote work trends in 2025',
+    'Top 10 programming languages in demand',
+    'How AI is shaping the future of work',
+];
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
-  <title>Profile</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LinkedIn Style Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #121212;
+      color: #e1e9f0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    nav {
+      background-color: #212121;
+    }
+    .nav-link-active {
+      border-bottom: 3px solid #0a66c2;
+      color: #0a66c2 !important;
+    }
+    .nav-link:hover {
+      color: #0a66c2 !important;
+    }
+    /* Scrollbars for feed and news panel */
+    .scrollable {
+      overflow-y: auto;
+      max-height: calc(100vh - 64px);
+    }
+  </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen p-6">
+<body class="min-h-screen flex flex-col">
 
+  <!-- Navbar -->
+  <nav class="flex items-center justify-between px-6 py-3 sticky top-0 z-50 shadow-md">
+    <div class="flex items-center space-x-4">
+      <!-- LinkedIn Logo -->
+      <a href="#" class="text-cyan-400 text-3xl font-bold">in</a>
 
-  <div class="flex justify-between items-center mb-8">
-    <h1 class="text-3xl font-bold text-cyan-400">Welcome, <?= htmlspecialchars($user['full_name']) ?></h1>
-    <a href="logout.php" class="bg-red-600 px-4 py-2 rounded hover:bg-red-700 font-semibold">Logout</a>
-  </div>
-
-
-  <div class="bg-gray-800 p-6 rounded-lg mb-10 shadow">
-    <h2 class="text-2xl font-bold mb-4">Your Profile</h2>
-    <div class="flex items-center space-x-6">
-      <img src="uploads/<?= htmlspecialchars($user['profile_pic']) ?>" alt="Profile Picture" class="w-24 h-24 rounded-full object-cover border-2 border-cyan-400" />
-      <div>
-        <p><strong>Name:</strong> <?= htmlspecialchars($user['full_name']) ?></p>
-        <p><strong>Email:</strong> <?= htmlspecialchars($user['email']) ?></p>
-        <p><strong>Age:</strong> <?= htmlspecialchars($user['age']) ?></p>
-   
+      <!-- Search Bar -->
+      <div class="relative hidden md:block">
+        <input type="text" placeholder="Search" class="bg-gray-800 rounded-full pl-10 pr-4 py-1 text-gray-200 focus:outline-none focus:ring-2 focus:ring-cyan-400" />
+        <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
       </div>
     </div>
-  </div>
 
-  <!-- Post Form -->
-  <div class="bg-gray-800 p-6 rounded-lg shadow mb-10">
-    <h2 class="text-2xl font-bold mb-4">Create a Post</h2>
-    <form id="postForm" enctype="multipart/form-data" method="post" action="ajax/add_post.php">
-      <div class="mb-4">
-        <label for="description" class="block font-semibold mb-2">Description</label>
-        <textarea name="description" id="description" class="w-full p-3 rounded bg-gray-700 text-white" rows="3" required></textarea>
-      </div>
-      <div class="mb-4">
-        <label for="image" class="block font-semibold mb-2">Post Image</label>
-        <input type="file" name="image" id="image" accept="image/*" class="text-white" required />
-      </div>
-      <button type="submit" class="bg-cyan-500 px-6 py-2 rounded font-semibold hover:bg-cyan-600">Post</button>
-    </form>
-  </div>
+    <!-- Nav Links -->
+    <ul class="hidden md:flex space-x-8 text-gray-400 font-semibold uppercase tracking-wide">
+      <li>
+        <a href="#" class="nav-link nav-link-active flex flex-col items-center text-sm">
+          <i class="fas fa-home text-xl mb-1"></i>
+          Home
+        </a>
+      </li>
+      <li>
+        <a href="#" class="nav-link flex flex-col items-center text-sm">
+          <i class="fas fa-user-friends text-xl mb-1"></i>
+          My Network
+        </a>
+      </li>
+      <li>
+        <a href="#" class="nav-link flex flex-col items-center text-sm">
+          <i class="fas fa-briefcase text-xl mb-1"></i>
+          Jobs
+        </a>
+      </li>
+      <li>
+        <a href="#" class="nav-link flex flex-col items-center text-sm">
+          <i class="fas fa-comment-dots text-xl mb-1"></i>
+          Messaging
+        </a>
+      </li>
+      <li>
+        <a href="#" class="nav-link flex flex-col items-center text-sm">
+          <i class="fas fa-bell text-xl mb-1"></i>
+          Notifications
+        </a>
+      </li>
+      <li>
+        <a href="#" class="nav-link flex flex-col items-center text-sm">
+          <i class="fas fa-user-circle text-2xl mb-1"></i>
+          Me
+        </a>
+      </li>
+    </ul>
 
+    <!-- Right: Logout -->
+    <div>
+      <a href="logout.php" class="text-gray-400 hover:text-red-600 font-semibold text-sm">Logout</a>
+    </div>
+  </nav>
 
-  <div>
-    <h2 class="text-2xl font-bold mb-4">Your Posts</h2>
-    <div id="postList" class="space-y-6">
-      <?php foreach ($posts as $post): ?>
-        <div class="bg-gray-800 p-4 rounded-lg shadow">
-          <img src="uploads/<?= htmlspecialchars($post['image']) ?>" alt="Post Image" class="w-full h-60 object-cover rounded mb-4">
-          <p class="text-lg"><?= htmlspecialchars($post['description']) ?></p>
-          <div class="mt-4 flex items-center justify-between">
-            <div>
-              <button class="like-btn bg-green-600 hover:bg-green-700 px-3 py-1 rounded" data-id="<?= $post['id'] ?>">Like</button>
-              <button class="dislike-btn bg-red-600 hover:bg-red-700 px-3 py-1 rounded" data-id="<?= $post['id'] ?>">Dislike</button>
-            </div>
-            <form method="post" action="ajax/remove_post.php" onsubmit="return confirm('Delete this post?')">
-              <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-              <button type="submit" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-sm">Delete</button>
-            </form>
-          </div>
+  <!-- Main content 3-column layout -->
+  <div class="flex flex-grow max-w-7xl mx-auto px-4 md:px-6 py-6 gap-6">
+
+    <!-- Left Sidebar: Profile -->
+    <aside class="hidden md:flex flex-col w-64 bg-gray-900 rounded-lg p-6 shadow-lg sticky top-20 self-start h-[calc(100vh-80px)]">
+      <div class="flex flex-col items-center mb-6">
+        <!-- Small Profile Circle -->
+        <div class="w-16 h-16 rounded-full bg-cyan-600 flex items-center justify-center text-3xl font-bold uppercase text-gray-100 select-none mb-3">
+          <?php echo htmlspecialchars(substr($username, 0, 1)); ?>
         </div>
+        <h2 class="text-xl font-bold text-gray-100 mb-1 text-center"><?php echo htmlspecialchars($username); ?></h2>
+        <p class="text-cyan-400 text-center font-semibold text-sm">Full Stack Developer</p>
+        <p class="text-gray-400 text-center text-xs mt-1">San Francisco, CA</p>
+      </div>
+      <p class="text-gray-300 text-sm text-center px-2">
+        Passionate developer with experience building scalable web applications.
+      </p>
+    </aside>
+
+    <!-- Center Feed -->
+    <main class="flex-grow bg-gray-900 rounded-lg p-6 shadow-lg overflow-y-auto max-h-[calc(100vh-80px)]">
+
+      <h1 class="text-3xl font-extrabold mb-6 text-cyan-400">Home Feed</h1>
+
+      <?php foreach ($posts as $post): ?>
+        <article class="bg-gray-800 rounded-lg p-5 mb-6 shadow hover:shadow-cyan-600 transition-shadow cursor-pointer">
+          <header class="flex items-center mb-4 space-x-4">
+            <div class="w-12 h-12 rounded-full bg-cyan-600 flex items-center justify-center text-xl font-bold uppercase text-gray-100 select-none">
+              <?php echo htmlspecialchars(substr($post['user'], 0, 1)); ?>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-gray-100"><?php echo htmlspecialchars($post['user']); ?></h3>
+              <time class="text-sm text-gray-400"><?php echo htmlspecialchars($post['time']); ?></time>
+            </div>
+          </header>
+          <p class="text-gray-300"><?php echo htmlspecialchars($post['content']); ?></p>
+          <div class="mt-4 flex space-x-6 text-gray-400 text-sm">
+            <button class="hover:text-cyan-400 flex items-center space-x-2">
+              <i class="fas fa-thumbs-up"></i><span>Like</span>
+            </button>
+            <button class="hover:text-cyan-400 flex items-center space-x-2">
+              <i class="fas fa-comment"></i><span>Comment</span>
+            </button>
+            <button class="hover:text-cyan-400 flex items-center space-x-2">
+              <i class="fas fa-share"></i><span>Share</span>
+            </button>
+          </div>
+        </article>
       <?php endforeach; ?>
-    </div>
+
+    </main>
+
+    <!-- Right Sidebar: News -->
+    <aside class="hidden lg:flex flex-col w-64 bg-gray-900 rounded-lg p-6 shadow-lg sticky top-20 self-start h-[calc(100vh-80px)]">
+      <h2 class="text-2xl font-extrabold mb-6 text-cyan-400">Trending News</h2>
+      <ul class="space-y-4 text-gray-300 text-sm">
+        <?php foreach ($news as $item): ?>
+          <li class="hover:text-cyan-400 cursor-pointer border-b border-gray-700 pb-2">
+            <i class="fas fa-bolt text-yellow-400 mr-2"></i><?php echo htmlspecialchars($item); ?>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+    </aside>
+
   </div>
-
-  <!-- Scripts for AJAX (placeholder, to be implemented later) -->
-  <script>
-    // AJAX for like/dislike (to be added in ajax/update_likes.php)
-    $(".like-btn, .dislike-btn").click(function () {
-      const postId = $(this).data("id");
-      const type = $(this).hasClass("like-btn") ? "like" : "dislike";
-
-      $.post("ajax/update_likes.php", { post_id: postId, action: type }, function (response) {
-        alert("Updated: " + response);
-        // Optional: Reload or update UI
-      });
-    });
-  </script>
 
 </body>
 </html>
